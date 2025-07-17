@@ -94,8 +94,6 @@ X_train_res, y_train_res = cc.fit_resample(X_train, y_train)
 logging.info(f"Размеры y_train до: {y_train.shape}, после: {y_train_res.shape}")
 
 # class_weight для Keras на основе y_train_res
-from collections import Counter
-
 class_counts = Counter(y_train_res)
 total = sum(class_counts.values())
 class_weight = {cls: total / (2 * count) for cls, count in class_counts.items()}
