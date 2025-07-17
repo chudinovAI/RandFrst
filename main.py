@@ -2,6 +2,8 @@ import os
 import logging
 import seaborn as sns
 import matplotlib.pyplot as plt
+import gc
+from imblearn.under_sampling import ClusterCentroids
 from src.config import ProjectConfig
 from src.data_processing import load_and_combine_data, create_dynamic_features
 from src.training import (
@@ -36,6 +38,26 @@ logging.info(
     f"После динамических признаков: {features_df.shape[0]} строк, {features_df.shape[1]} признаков"
 )
 
+
+# === Шаг 2.5: Оптимизация и очистка памяти ===
+def optimize_df_types(df):
+    start_mem = df.memory_usage(deep=True).sum() / 1024**2
+    for col in df.columns:
+        if df[col].dtype == "float64":
+            df[col] = df[col].astype("float32")
+        elif df[col].dtype == "int64":
+            df[col] = df[col].astype("int32")
+    end_mem = df.memory_usage(deep=True).sum() / 1024**2
+    logging.info(
+        f"DataFrame memory usage reduced from {start_mem:.2f} MB to {end_mem:.2f} MB"
+    )
+    return df
+
+
+features_df = optimize_df_types(features_df)
+del raw_df
+gc.collect()
+
 # === Шаг 3: Анализ корреляции ===
 corr = features_df.corr()
 top_corr = corr[ProjectConfig.TARGET_COLUMN].abs().sort_values(ascending=False)[1:11]
@@ -64,16 +86,29 @@ X_train, X_test, y_train, y_test = train_test_split(
     random_state=ProjectConfig.RANDOM_STATE,
     stratify=y,
 )
-# class_weight для Keras
-class_counts = Counter(y_train)
+
+# Андерсэмплинг обучающей выборки
+cc = ClusterCentroids(random_state=ProjectConfig.RANDOM_STATE)
+logging.info("Начинаю андерсэмплинг с помощью ClusterCentroids (может занять время)...")
+X_train_res, y_train_res = cc.fit_resample(X_train, y_train)
+logging.info(f"Размеры y_train до: {y_train.shape}, после: {y_train_res.shape}")
+
+# class_weight для Keras на основе y_train_res
+from collections import Counter
+
+class_counts = Counter(y_train_res)
 total = sum(class_counts.values())
 class_weight = {cls: total / (2 * count) for cls, count in class_counts.items()}
+
 # Обучение sklearn моделей
 sklearn_results = train_sklearn_models(
-    X_train, y_train, ProjectConfig.MODELS_AND_PARAMS, ProjectConfig.RANDOM_STATE
+    X_train_res,
+    y_train_res,
+    ProjectConfig.MODELS_AND_PARAMS,
+    ProjectConfig.RANDOM_STATE,
 )
 # Обучение Keras
-keras_model = train_keras_model(X_train, y_train, X_test, y_test, class_weight)
+keras_model = train_keras_model(X_train_res, y_train_res, X_test, y_test, class_weight)
 # Собираем все модели
 all_models = {name: res["model"] for name, res in sklearn_results.items()}
 all_models = {"KerasNN": keras_model, **all_models}
@@ -99,7 +134,7 @@ top_models = sorted(
 )[:3]
 estimators = [(name, res["model"]) for name, res in top_models]
 if len(estimators) >= 2:
-    voting_clf = train_voting_ensemble(estimators, X_train, y_train)
+    voting_clf = train_voting_ensemble(estimators, X_train_res, y_train_res)
     eval_res = evaluate_model(voting_clf, X_test, y_test)
     final_results["VotingClassifier"] = {
         "model": voting_clf,

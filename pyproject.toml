@@ -14,4 +14,5 @@ dependencies = [
     "tensorflow>=2.19.0",
     "tensorflow-keras>=0.1",
     "xgboost>=3.0.2",
+    "imbalanced-learn>=0.12.0",
 ]

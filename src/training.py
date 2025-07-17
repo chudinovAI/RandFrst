@@ -59,7 +59,7 @@ def train_sklearn_models(X_train, y_train, models_config, random_state) -> dict:
             )
         if grid_size <= 20:
             search = GridSearchCV(
-                pipe, param_grid_pipe, scoring="roc_auc", cv=5, n_jobs=-1
+                pipe, param_grid_pipe, scoring="roc_auc", cv=5, n_jobs=4
             )
         else:
             search = RandomizedSearchCV(
@@ -68,7 +68,7 @@ def train_sklearn_models(X_train, y_train, models_config, random_state) -> dict:
                 n_iter=min(25, int(grid_size)),
                 scoring="roc_auc",
                 cv=5,
-                n_jobs=-1,
+                n_jobs=4,
                 random_state=random_state,
             )
         search.fit(X_train, y_train, **fit_params)
