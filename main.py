@@ -1,9 +1,13 @@
 import os
 import logging
+import gc
+from collections import Counter
+from typing import Dict, Any
+import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-import gc
 from imblearn.under_sampling import ClusterCentroids
+from sklearn.model_selection import train_test_split
 from src.config import ProjectConfig
 from src.data_processing import load_and_combine_data, create_dynamic_features
 from src.training import (
@@ -20,7 +24,11 @@ from src.visualization import (
     save_precision_recall_curve,
 )
 from src.reporting import generate_markdown_report, find_optimal_thresholds_fast
-from collections import Counter
+
+# --- Принудительная перенастройка корневого логгера ---
+# Удаляем все существующие обработчики (handlers), установленные другими библиотеками
+for handler in logging.root.handlers[:]:
+    logging.root.removeHandler(handler)
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -30,7 +38,7 @@ logging.basicConfig(
 raw_df = load_and_combine_data(
     ProjectConfig.SMOKE_DATA_PATH, ProjectConfig.NO_SMOKE_DATA_PATH
 )
-logging.info(f"Загружено {raw_df.shape[0]} строк, {raw_df.shape[1]} признаков")
+logging.info(f"Загружено {raw_df.shape[0]} строк, {raw_df.shape[1]} признаков (объединённый DataFrame)")
 
 # === Шаг 2: Создание динамических признаков ===
 features_df = create_dynamic_features(raw_df, window_size=5)
@@ -38,9 +46,8 @@ logging.info(
     f"После динамических признаков: {features_df.shape[0]} строк, {features_df.shape[1]} признаков"
 )
 
-
-# === Шаг 2.5: Оптимизация и очистка памяти ===
-def optimize_df_types(df):
+# === Шаг 3: Оптимизация и очистка памяти ===
+def optimize_df_types(df: pd.DataFrame) -> pd.DataFrame:
     start_mem = df.memory_usage(deep=True).sum() / 1024**2
     for col in df.columns:
         if df[col].dtype == "float64":
@@ -53,18 +60,19 @@ def optimize_df_types(df):
     )
     return df
 
-
-features_df = optimize_df_types(features_df)
+# Освобождаем память после создания признаков
+logging.info("Освобождаю память: удаляю raw_df и вызываю gc.collect()...")
 del raw_df
 gc.collect()
 
-# === Шаг 3: Анализ корреляции ===
+features_df = optimize_df_types(features_df)
+
+# === Шаг 4: Анализ корреляции ===
 corr = features_df.corr()
 top_corr = corr[ProjectConfig.TARGET_COLUMN].abs().sort_values(ascending=False)[1:11]
 logging.info("Топ-10 признаков по корреляции с label:")
 for feat, val in top_corr.items():
     logging.info(f"  {feat}: {val:.3f}")
-# Сохраняем heatmap
 os.makedirs("outputs/plots", exist_ok=True)
 plt.figure(figsize=(14, 10))
 sns.heatmap(corr, cmap="coolwarm", center=0)
@@ -73,11 +81,10 @@ plt.tight_layout()
 plt.savefig("outputs/plots/correlation_heatmap.png")
 plt.close()
 
-# === Шаг 4: Разделение данных и обучение ===
+# === Шаг 5: Разделение, андерсэмплинг и обучение ===
 features = [col for col in features_df.columns if col != ProjectConfig.TARGET_COLUMN]
 X = features_df[features]
 y = features_df[ProjectConfig.TARGET_COLUMN]
-from sklearn.model_selection import train_test_split
 
 X_train, X_test, y_train, y_test = train_test_split(
     X,
@@ -90,7 +97,9 @@ X_train, X_test, y_train, y_test = train_test_split(
 # Андерсэмплинг обучающей выборки
 cc = ClusterCentroids(random_state=ProjectConfig.RANDOM_STATE)
 logging.info("Начинаю андерсэмплинг с помощью ClusterCentroids (может занять время)...")
-X_train_res, y_train_res = cc.fit_resample(X_train, y_train)
+X_train_res_np, y_train_res_np = cc.fit_resample(X_train, y_train)
+X_train_res = pd.DataFrame(X_train_res_np, columns=X_train.columns)
+y_train_res = pd.Series(y_train_res_np)
 logging.info(f"Размеры y_train до: {y_train.shape}, после: {y_train_res.shape}")
 
 # class_weight для Keras на основе y_train_res
@@ -125,6 +134,7 @@ for name, model in all_models.items():
         "best_params": best_params,
     }
 # Ансамбль
+# Выбираем топ-3 модели по ROC AUC (кроме KerasNN)
 top_models = sorted(
     ((name, res) for name, res in final_results.items() if name != "KerasNN"),
     key=lambda x: x[1]["metrics"]["roc_auc_score"],
@@ -142,7 +152,7 @@ if len(estimators) >= 2:
         "best_params": None,
     }
 
-# === Шаг 5: Визуализация и отчетность ===
+# === Шаг 6: Визуализация и отчетность ===
 os.makedirs("outputs/plots", exist_ok=True)
 os.makedirs("outputs/reports_and_metrics", exist_ok=True)
 save_roc_curves(final_results, y_test, "outputs/plots/roc_curves_comparison.png")
