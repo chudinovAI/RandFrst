@@ -47,13 +47,12 @@ def train_sklearn_models(X_train, y_train, models_config, random_state) -> dict:
             if param_grid_pipe
             else 1
         )
-        fit_params = {}
-        # Для XGBClassifier динамически задаём scale_pos_weight через fit_params
+        # Для XGBClassifier динамически задаём scale_pos_weight через set_params
         if model_name == "XGBClassifier":
             n_0 = np.sum(y_train == 0)
             n_1 = np.sum(y_train == 1)
             scale_pos_weight = n_0 / n_1 if n_1 > 0 else 1.0
-            fit_params = {"model__scale_pos_weight": scale_pos_weight}
+            pipe.set_params(model__scale_pos_weight=scale_pos_weight)
             logging.info(
                 f"XGBClassifier: scale_pos_weight set to {scale_pos_weight:.3f}"
             )
@@ -71,7 +70,7 @@ def train_sklearn_models(X_train, y_train, models_config, random_state) -> dict:
                 n_jobs=4,
                 random_state=random_state,
             )
-        search.fit(X_train, y_train, **fit_params)
+        search.fit(X_train, y_train)
         best_model = search.best_estimator_
         best_params = search.best_params_
         results[model_name] = {"model": best_model, "best_params": best_params}
