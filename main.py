@@ -6,7 +6,7 @@ from typing import Dict, Any
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-from imblearn.under_sampling import ClusterCentroids
+from imblearn.under_sampling import RandomUnderSampler
 from sklearn.model_selection import train_test_split
 from src.config import ProjectConfig
 from src.data_processing import load_and_combine_data, create_dynamic_features
@@ -95,9 +95,9 @@ X_train, X_test, y_train, y_test = train_test_split(
 )
 
 # Андерсэмплинг обучающей выборки
-cc = ClusterCentroids(random_state=ProjectConfig.RANDOM_STATE)
-logging.info("Начинаю андерсэмплинг с помощью ClusterCentroids (может занять время)...")
-X_train_res_np, y_train_res_np = cc.fit_resample(X_train, y_train)
+rus = RandomUnderSampler(random_state=ProjectConfig.RANDOM_STATE)
+logging.info("Начинаю андерсэмплинг с помощью RandomUnderSampler...")
+X_train_res_np, y_train_res_np = rus.fit_resample(X_train, y_train)
 X_train_res = pd.DataFrame(X_train_res_np, columns=X_train.columns)
 y_train_res = pd.Series(y_train_res_np)
 logging.info(f"Размеры y_train до: {y_train.shape}, после: {y_train_res.shape}")
