@@ -65,7 +65,7 @@ def train_sklearn_models(X_train, y_train, models_config, random_state) -> dict:
             )
         if grid_size <= 20:
             search = GridSearchCV(
-                pipe, param_grid_pipe, scoring="roc_auc", cv=5, n_jobs=4
+                pipe, param_grid_pipe, scoring="roc_auc", cv=5, n_jobs=-1
             )
         else:
             search = RandomizedSearchCV(
@@ -74,7 +74,7 @@ def train_sklearn_models(X_train, y_train, models_config, random_state) -> dict:
                 n_iter=min(25, int(grid_size)),
                 scoring="roc_auc",
                 cv=5,
-                n_jobs=4,
+                n_jobs=-1,
                 random_state=random_state,
             )
         search.fit(X_train, y_train)
@@ -90,7 +90,8 @@ def train_keras_model(
     input_dim = X_train.shape[1]
     model = keras.Sequential(
         [
-            layers.Dense(32, activation="relu", input_shape=(input_dim,)),
+            keras.Input(shape=(input_dim,)),
+            layers.Dense(32, activation="relu"),
             layers.Dense(16, activation="relu"),
             layers.Dense(1, activation="sigmoid"),
         ]
@@ -99,14 +100,15 @@ def train_keras_model(
     early_stop = EarlyStopping(
         monitor="val_loss", patience=10, restore_best_weights=True
     )
+    # Использование GPU автоматически, если доступно (TensorFlow/Keras)
     model.fit(
         X_train,
         y_train,
         validation_data=(X_test, y_test),
         epochs=100,
-        batch_size=32,
+        batch_size=64,  # увеличен для ускорения
         callbacks=[early_stop],
-        verbose="auto",
+        verbose=2,  # более подробный вывод
         class_weight=class_weight_dict,
     )
     return model

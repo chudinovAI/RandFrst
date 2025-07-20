@@ -7,6 +7,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from imblearn.under_sampling import RandomUnderSampler
+from imblearn.combine import SMOTEENN
 from sklearn.model_selection import train_test_split
 from src.config import ProjectConfig
 from src.data_processing import load_and_combine_data, create_dynamic_features
@@ -95,11 +96,16 @@ X_train, X_test, y_train, y_test = train_test_split(
 )
 
 # Андерсэмплинг обучающей выборки
-rus = RandomUnderSampler(random_state=ProjectConfig.RANDOM_STATE)
-logging.info("Начинаю андерсэмплинг с помощью RandomUnderSampler...")
-X_train_res_np, y_train_res_np = rus.fit_resample(X_train, y_train)
-X_train_res = pd.DataFrame(X_train_res_np, columns=X_train.columns)
-y_train_res = pd.Series(y_train_res_np)
+# rus = RandomUnderSampler(random_state=ProjectConfig.RANDOM_STATE)
+# logging.info("Начинаю андерсэмплинг с помощью RandomUnderSampler...")
+# X_train_res_np, y_train_res_np = rus.fit_resample(X_train, y_train)
+# X_train_res = pd.DataFrame(X_train_res_np, columns=X_train.columns)
+# y_train_res = pd.Series(y_train_res_np)
+# logging.info(f"Размеры y_train до: {y_train.shape}, после: {y_train_res.shape}")
+
+logging.info("Начало комбинированного сэмплирования с помощью SMOTEENN...")
+sampler = SMOTEENN(random_state=ProjectConfig.RANDOM_STATE, n_jobs=-1)
+X_train_res, y_train_res = sampler.fit_resample(X_train, y_train)
 logging.info(f"Размеры y_train до: {y_train.shape}, после: {y_train_res.shape}")
 
 # class_weight для Keras на основе y_train_res

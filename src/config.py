@@ -27,7 +27,7 @@ class ProjectConfig:
         ),
         (
             "RandomForestClassifier",
-            RandomForestClassifier(random_state=42, class_weight="balanced"),
+            RandomForestClassifier(random_state=42, class_weight="balanced", n_jobs=-1),
             {
                 "n_estimators": [50, 100, 200],
                 "max_depth": [None, 5, 10, 20],
@@ -43,7 +43,7 @@ class ProjectConfig:
         ),
         (
             "GradientBoostingClassifier",
-            GradientBoostingClassifier(random_state=42),
+            GradientBoostingClassifier(random_state=42, n_iter_no_change=5, validation_fraction=0.1),
             {
                 "n_estimators": [50, 100, 200],
                 "learning_rate": [0.05, 0.1, 0.2],
@@ -52,7 +52,7 @@ class ProjectConfig:
         ),
         (
             "XGBClassifier",
-            XGBClassifier(eval_metric="logloss", random_state=42),
+            XGBClassifier(eval_metric="logloss", random_state=42, n_jobs=-1, tree_method="gpu_hist", predictor="gpu_predictor"),
             {
                 "n_estimators": [50, 100, 200],
                 "learning_rate": [0.05, 0.1, 0.2],
