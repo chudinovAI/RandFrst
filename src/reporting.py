@@ -12,10 +12,10 @@ def find_optimal_thresholds_fast(df):
     results = []
     for feature in features:
         x = df[feature].values
-        # Нижний порог: feature > t
+        # lower threshold: feature > t
         precisions, recalls, thresholds = precision_recall_curve(y_true, x)
         f1s = 2 * (precisions * recalls) / (precisions + recalls + 1e-8)
-        # Синхронизируем длины
+        # length sync
         min_len = min(len(f1s), len(thresholds))
         if min_len > 0:
             f1s_cut = f1s[:min_len]
@@ -26,7 +26,7 @@ def find_optimal_thresholds_fast(df):
         else:
             best_t_lower = None
             best_f1_lower = None
-        # Верхний порог: feature < t
+        # upper threshold: feature < t
         precisions, recalls, thresholds = precision_recall_curve(y_true, -x)
         f1s = 2 * (precisions * recalls) / (precisions + recalls + 1e-8)
         min_len = min(len(f1s), len(thresholds))
@@ -55,6 +55,7 @@ def _md_path(path):
     return path.replace("\\", "/")
 
 
+# generate md report
 def generate_markdown_report(
     results: Dict[str, Dict[str, Any]],
     output_folder: str,
@@ -63,7 +64,6 @@ def generate_markdown_report(
 ) -> str:
     plots_dir = os.path.join(output_folder, "plots")
     reports_dir = os.path.join(output_folder, "reports_and_metrics")
-    # Пути к картинкам
     hist_path = _md_path(
         os.path.relpath(os.path.join(plots_dir, "feature_histograms.png"), reports_dir)
     )
@@ -72,10 +72,6 @@ def generate_markdown_report(
             os.path.join(plots_dir, "roc_curves_comparison.png"), reports_dir
         )
     )
-    boxplot_path = _md_path(
-        os.path.relpath(os.path.join(plots_dir, "feature_boxplots.png"), reports_dir)
-    )
-    # Сбор метрик моделей
     metrics_table = []
     for model_name, res in results.items():
         m = res["metrics"]
@@ -94,10 +90,9 @@ def generate_markdown_report(
         columns=pd.Index(["Model", "Accuracy", "Precision", "Recall", "F1", "ROC AUC"]),
     )
     metrics_md = metrics_df.to_markdown(index=False, floatfmt=".3f")
-    # Лучшая модель по ROC AUC
+    # best model
     best_row = metrics_df.sort_values("ROC AUC", ascending=False).iloc[0]
     best_model_name = best_row["Model"]
-    # Пути к важности признаков и гиперпараметрам
     feature_importances_path = os.path.join(
         plots_dir, f"{best_model_name}_feature_importances.png"
     )
@@ -114,9 +109,7 @@ def generate_markdown_report(
             best_params = json.load(f)
     else:
         best_params = {}
-    # Таблица порогов
     thresholds_md = thresholds_df.to_markdown(index=False, floatfmt=".3f")
-    # --- Формирование текста отчета ---
     roc_interp = f"*Интерпретация:* {best_model_name} показывает наилучшее качество, его кривая лежит выше остальных."
     report_md = f"""# Отчет по анализу для датасета: {dataset_name}
 

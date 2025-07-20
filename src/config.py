@@ -8,15 +8,12 @@ from xgboost import XGBClassifier
 
 
 class ProjectConfig:
-    # Пути к основным датасетам
     # SMOKE_DATA_PATH = "data/smoke_data.csv"
     # NO_SMOKE_DATA_PATH = "data/smoke_data_no_label_1.csv"
     SMOKE_DATA_PATH = "/kaggle/input/dataset/data/smoke_data.csv"
     NO_SMOKE_DATA_PATH = "/kaggle/input/dataset/data/smoke_data_no_label_1.csv"
-    # Целевая переменная
     TARGET_COLUMN = "label"
 
-    # Модели и параметры (имя, объект_модели, сетка_параметров)
     MODELS_AND_PARAMS = [
         (
             "LogisticRegression",

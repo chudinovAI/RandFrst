@@ -18,8 +18,10 @@ from keras import Model as KerasModel
 
 
 def evaluate_model(model, X_test, y_test) -> dict:
-    # Определяем, является ли модель Keras
-    is_keras = isinstance(model, KerasModel) or model.__class__.__module__.startswith("keras")
+    # Check if keras
+    is_keras = isinstance(model, KerasModel) or model.__class__.__module__.startswith(
+        "keras"
+    )
     if is_keras:
         y_proba = model.predict(X_test).flatten()
         y_pred = (y_proba >= 0.5).astype(int)
@@ -30,7 +32,7 @@ def evaluate_model(model, X_test, y_test) -> dict:
         elif hasattr(model, "decision_function"):
             y_proba = model.decision_function(X_test)
         else:
-            y_proba = y_pred  # fallback, если только классы
+            y_proba = y_pred  # classes ? fallback
     metrics = {
         "accuracy": accuracy_score(y_test, y_pred),
         "precision": precision_score(y_test, y_pred),
@@ -44,7 +46,7 @@ def evaluate_model(model, X_test, y_test) -> dict:
 def train_sklearn_models(X_train, y_train, models_config, random_state) -> dict:
     results = {}
     for model_name, model_obj, param_grid in models_config:
-        logging.info(f"Обучение {model_name}")
+        logging.info(f"Training {model_name}")
         pipe = Pipeline([("scaler", StandardScaler()), ("model", model_obj)])
         param_grid_pipe = (
             {f"model__{k}": v for k, v in param_grid.items()} if param_grid else {}
@@ -54,7 +56,7 @@ def train_sklearn_models(X_train, y_train, models_config, random_state) -> dict:
             if param_grid_pipe
             else 1
         )
-        # Для XGBClassifier динамически задаём scale_pos_weight через set_params
+        # dynamic scale_pos_weight with set_params for XGBClassifier
         if model_name == "XGBClassifier":
             n_0 = np.sum(y_train == 0)
             n_1 = np.sum(y_train == 1)
@@ -100,15 +102,15 @@ def train_keras_model(
     early_stop = EarlyStopping(
         monitor="val_loss", patience=10, restore_best_weights=True
     )
-    # Использование GPU автоматически, если доступно (TensorFlow/Keras)
+    # GPU connect for tf/keras
     model.fit(
         X_train,
         y_train,
         validation_data=(X_test, y_test),
         epochs=100,
-        batch_size=64,  # увеличен для ускорения
+        batch_size=64,
         callbacks=[early_stop],
-        verbose=2,  # более подробный вывод
+        verbose=2,
         class_weight=class_weight_dict,
     )
     return model
