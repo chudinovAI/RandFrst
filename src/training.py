@@ -14,16 +14,23 @@ from keras.callbacks import EarlyStopping
 import keras
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+from keras import Model as KerasModel
 
 
 def evaluate_model(model, X_test, y_test) -> dict:
-    y_pred = model.predict(X_test)
-    if hasattr(model, "predict_proba"):
-        y_proba = model.predict_proba(X_test)[:, 1]
-    elif hasattr(model, "decision_function"):
-        y_proba = model.decision_function(X_test)
+    # Определяем, является ли модель Keras
+    is_keras = isinstance(model, KerasModel) or model.__class__.__module__.startswith("keras")
+    if is_keras:
+        y_proba = model.predict(X_test).flatten()
+        y_pred = (y_proba >= 0.5).astype(int)
     else:
-        y_proba = y_pred  # fallback, если только классы
+        y_pred = model.predict(X_test)
+        if hasattr(model, "predict_proba"):
+            y_proba = model.predict_proba(X_test)[:, 1]
+        elif hasattr(model, "decision_function"):
+            y_proba = model.decision_function(X_test)
+        else:
+            y_proba = y_pred  # fallback, если только классы
     metrics = {
         "accuracy": accuracy_score(y_test, y_pred),
         "precision": precision_score(y_test, y_pred),
